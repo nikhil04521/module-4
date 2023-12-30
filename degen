@@ -1,0 +1,80 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.18;
+
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
+
+contract materialToken is ERC20, Ownable {
+    enum Jacket { ADIDAS, NIKE, PUMA }
+
+    event JacketRedeemed(address indexed account, Jacket jacket, uint256 jacketCost);
+
+    struct JacketCosts {
+        uint256 adidas;
+        uint256 nike;
+        uint256 puma;
+    }
+
+    mapping(address => Jacket) public userSelectedJackets;
+    JacketCosts public jacketCosts;
+
+    constructor(address initialOwner) ERC20("Degen", "DGN") Ownable(initialOwner) {
+        setInitialJacketCosts();
+    }
+
+    function mint(address to, uint256 tally) external onlyOwner {
+        _mint(to, tally);
+    }
+
+    function burn(uint256 tally) external {
+        require(tally > 0, "The number of tokens to destroy must be greater than zero");
+        require(balanceOf(msg.sender) >= tally, "Insufficient funds for token destruction");
+        _burn(msg.sender, tally);
+    }
+
+    function redeemJacket(uint8 jacketNumber) external {
+        Jacket jacket = convertJacket(jacketNumber);
+        uint256 jacketCost = getJacketCost(jacket);
+
+        require(jacketCost > 0, "Invalid jacket selected");
+        require(balanceOf(msg.sender) >= jacketCost, "Insufficient funds for jacket redemption");
+
+        _burn(msg.sender, jacketCost);
+
+        userSelectedJackets[msg.sender] = jacket;
+        emit JacketRedeemed(msg.sender, jacket, jacketCost);
+    }
+
+    function transferJackets(address recipient, uint256 tally) external {
+        require(recipient != address(0), "Invalid recipient address provided");
+        require(balanceOf(msg.sender) >= tally, "Insufficient funds for jacket transfer");
+        _transfer(msg.sender, recipient, tally);
+    }
+
+    function getJacketCost(Jacket jacket) internal view returns (uint256) {
+        if (jacket == Jacket.ADIDAS) {
+            return jacketCosts.adidas;
+        } else if (jacket == Jacket.NIKE) {
+            return jacketCosts.nike;
+        } else {
+            return jacketCosts.puma;
+        }
+    }
+
+    function convertJacket(uint8 jacketNumber) internal pure returns (Jacket) {
+        require(jacketNumber >= 1 && jacketNumber <= 3, "Invalid jacket number");
+
+        if (jacketNumber == 1) {
+            return Jacket.ADIDAS;
+        } else if (jacketNumber == 2) {
+            return Jacket.NIKE;
+        } else {
+            return Jacket.PUMA;
+        }
+    }
+
+    function setInitialJacketCosts() internal {
+        jacketCosts = JacketCosts(50, 100, 80);
+    }
+}
